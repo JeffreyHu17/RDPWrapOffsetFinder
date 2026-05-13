@@ -77,7 +77,7 @@ void LocalOnlyPatch(ZydisDecoder* decoder, size_t RVA, size_t base, size_t targe
             return;
         }
     }
-    puts("ERROR: LocalOnlyPatch patten not found");
+    puts("ERROR: LocalOnlyPatch pattern not found");
 }
 
 void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
@@ -135,7 +135,7 @@ void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
             return;
         }
         else if (decoder->stack_width == ZYDIS_STACK_WIDTH_64 &&
-            !mov_base && instruction.mnemonic == ZYDIS_MNEMONIC_MOV &&
+            instruction.mnemonic == ZYDIS_MNEMONIC_MOV &&
             operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER &&
             operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY &&
             operands[1].mem.disp.value == 0x63c)
@@ -187,7 +187,7 @@ void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
         length -= instLength;
         lastLength = instLength;
     }
-    puts("ERROR: DefPolicyPatch patten not found");
+    puts("ERROR: DefPolicyPatch pattern not found");
 }
 
 int SingleUserPatch(ZydisDecoder* decoder, size_t RVA, size_t base, size_t target, size_t target2) {

@@ -123,7 +123,7 @@ int main(int argc, char** argv)
     {
         auto target = (size_t)(symbol.Address - symbol.ModBase);
         if (SymFromNameW(hProcess, L"CSessionArbitrationHelper::IsSingleSessionPerUserEnabled", &symbol) &&
-            SingleUserPatch(&decoder, symbol.Address - symbol.ModBase, base, target, VerifyVersion_addr));
+            SingleUserPatch(&decoder, (size_t)(symbol.Address - symbol.ModBase), base, target, VerifyVersion_addr));
         else if (SymFromNameW(hProcess, L"CUtils::IsSingleSessionPerUser", &symbol))
             if(!SingleUserPatch(&decoder, (size_t)(symbol.Address - symbol.ModBase), base, target, VerifyVersion_addr))
                 puts("ERROR: SingleUserPatch not found");
