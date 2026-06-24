@@ -89,6 +89,9 @@ void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
     auto IP = RVA + base;
     auto mov_base = ZYDIS_REGISTER_NONE;
     auto mov_target = ZYDIS_REGISTER_NONE;
+    auto mov_base2 = ZYDIS_REGISTER_NONE;
+    auto mov_target2 = ZYDIS_REGISTER_NONE;
+
 
     while (ZYAN_SUCCESS(ZydisDecoderDecodeFull(decoder, (void*)IP, length, &instruction, operands)))
     {
@@ -97,6 +100,7 @@ void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
         {
             const char* reg1;
             const char* reg2;
+            size_t offset = 0;
             if (operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY &&
                 operands[0].mem.disp.value == 0x63c &&
                 operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER)
@@ -111,6 +115,16 @@ void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
                 reg1 = ZydisRegisterGetString(operands[0].reg.value);
                 reg2 = ZydisRegisterGetString(operands[1].mem.base);
             }
+            else if (mov_base && mov_base == mov_base2 &&
+                    operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER &&
+                    operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER &&
+                    (operands[0].reg.value == mov_target && operands[1].reg.value == mov_target2 ||
+                        operands[0].reg.value == mov_target2 && operands[1].reg.value == mov_target))
+            {
+                reg1 = ZydisRegisterGetString(mov_target2);
+                reg2 = ZydisRegisterGetString(mov_base2);
+                offset = lastLength;
+            }
             else goto out;
             const char* jmp = "";
 
@@ -119,7 +133,7 @@ void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
 
             if (instruction.mnemonic == ZYDIS_MNEMONIC_JNZ)
             {
-                IP -= lastLength;
+                offset = lastLength;
                 jmp = "_jmp";
             }
             else if (instruction.mnemonic != ZYDIS_MNEMONIC_JZ && instruction.mnemonic != ZYDIS_MNEMONIC_POP)
@@ -131,7 +145,7 @@ void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
                 "DefPolicyCode.x64=CDefPolicy_Query_%s_%s%s\n"
                 : "DefPolicyPatch.x86=1\n"
                 "DefPolicyOffset.x86=%IX\n"
-                "DefPolicyCode.x86=CDefPolicy_Query_%s_%s%s\n", IP - base, reg1, reg2, jmp);
+                "DefPolicyCode.x86=CDefPolicy_Query_%s_%s%s\n", IP - offset - base, reg1, reg2, jmp);
             return;
         }
         else if (decoder->stack_width == ZYDIS_STACK_WIDTH_64 &&
@@ -147,39 +161,10 @@ void DefPolicyPatch(ZydisDecoder* decoder, size_t RVA, size_t base) {
             instruction.mnemonic == ZYDIS_MNEMONIC_MOV &&
             operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER &&
             operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY &&
-            operands[1].mem.base == mov_base &&
             operands[1].mem.disp.value == 0x638)
         {
-            auto mov_target2 = operands[0].reg.value;
-            const char* reg1 = ZydisRegisterGetString(mov_target2);
-            const char* reg2 = ZydisRegisterGetString(operands[1].mem.base);
-            const char* jmp = "";
-
-            auto offset = instLength;
-            while (ZYAN_SUCCESS(ZydisDecoderDecodeFull(decoder, (void*)(IP + offset), length - offset, &instruction, operands))) {
-                offset += instruction.length;
-                if (instruction.mnemonic == ZYDIS_MNEMONIC_CMP &&
-                    operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER &&
-                    operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER &&
-                    (operands[0].reg.value == mov_target && operands[1].reg.value == mov_target2 ||
-                        operands[0].reg.value == mov_target2 && operands[1].reg.value == mov_target))
-                    break;
-            }
-
-            if (!ZYAN_SUCCESS(ZydisDecoderDecodeInstruction(decoder, (ZydisDecoderContext*)0, (void*)(IP + offset), length - offset, &instruction)))
-                break;
-
-            if (instruction.mnemonic == ZYDIS_MNEMONIC_JNZ)
-            {
-                jmp = "_jmp";
-            }
-            else if (instruction.mnemonic != ZYDIS_MNEMONIC_JZ && instruction.mnemonic != ZYDIS_MNEMONIC_POP)
-                break;
-
-            printf("DefPolicyPatch.x64=1\n"
-                "DefPolicyOffset.x64=%IX\n"
-                "DefPolicyCode.x64=CDefPolicy_Query_%s_%s%s\n", IP - base, reg1, reg2, jmp);
-            return;
+            mov_base2 = operands[1].mem.base;
+            mov_target2 = operands[0].reg.value;
         }
     out:
         IP += instLength;
